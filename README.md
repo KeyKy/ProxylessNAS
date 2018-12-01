@@ -1,4 +1,4 @@
-# Proxyless-NAS
+# ProxylessNAS: Direct Neural Architecture Search on Target Task and Hardware
 [Han Cai](http://han-cai.github.io), [Ligeng Zhu](http://lzhu.me), [Song Han](http://songhan.mit.edu). 
 
 With any proxy, direct search neural network architectures on your target **task** and **hardware**! 
