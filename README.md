@@ -1,9 +1,11 @@
 # Proxyless-NAS
+[Han Cai](http://han-cai.github.io), [Ligeng Zhu](http://lzhu.me), [Song Han](http://songhan.mit.edu). 
+
 With any proxy, direct search neural network architectures on your target **task** and **hardware**! 
 
 ![](figures/proxyless_nas.png)
 
-Note: our code is written in PyTorch 0.3, and has been tested in both 0.3 and 0.4.
+Note: our code is developed in PyTorch 0.3, and has been tested in both 0.3 and 0.4.
 
 ## Performance 
 | Model                | Top-1    | Top-5    | Latency | 
