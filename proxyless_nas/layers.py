@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from models.utils import *
+from proxyless_nas.utils import *
 
 
 def set_layer_from_config(layer_config):
@@ -13,6 +13,7 @@ def set_layer_from_config(layer_config):
 		PoolingLayer.__name__: PoolingLayer,
 		IdentityLayer.__name__: IdentityLayer,
 		LinearLayer.__name__: LinearLayer,
+		VHConvLayer.__name__: VHConvLayer,
 		MBInvertedConvLayer.__name__: MBInvertedConvLayer,
 		ZeroLayer.__name__: ZeroLayer,
 	}
@@ -64,6 +65,8 @@ class BasicLayer(BasicUnit):
 		else:
 			self.dropout = None
 
+	""" ops order properties """
+
 	@property
 	def ops_list(self):
 		return self.ops_order.split('_')
@@ -77,8 +80,12 @@ class BasicLayer(BasicUnit):
 				return False
 		raise ValueError('Invalid ops_order: %s' % self.ops_order)
 
+	""" unimplemented methods """
+
 	def weight_call(self, x):
 		raise NotImplementedError
+
+	""" abstract methods """
 
 	def forward(self, x):
 		for op in self.ops_list:
@@ -392,6 +399,8 @@ class LinearLayer(BasicUnit):
 		# linear
 		self.linear = nn.Linear(self.in_features, self.out_features, self.bias)
 
+	""" ops order properties """
+
 	@property
 	def ops_list(self):
 		return self.ops_order.split('_')
@@ -404,6 +413,8 @@ class LinearLayer(BasicUnit):
 			elif op == 'weight':
 				return False
 		raise ValueError('Invalid ops_order: %s' % self.ops_order)
+
+	""" abstract methods """
 
 	def forward(self, x):
 		for op in self.ops_list:
@@ -451,9 +462,60 @@ class LinearLayer(BasicUnit):
 		return False
 
 
+class VHConvLayer(BasicLayer):
+
+	def __init__(self, in_channels, out_channels,
+	             kernel_size=3, stride=1, bias=False,
+	             use_bn=True, act_func='relu', dropout_rate=0, ops_order='weight_bn_act'):
+		super(VHConvLayer, self).__init__(in_channels, out_channels, use_bn, act_func, dropout_rate, ops_order)
+
+		self.kernel_size = kernel_size
+		self.stride = stride
+		self.bias = bias
+
+		kernel1, kernel2 = (1, self.kernel_size), (self.kernel_size, 1)
+		padding1, padding2 = get_same_padding(kernel1), get_same_padding(kernel2)
+		stride1, stride2 = (1, self.stride), (self.stride, 1)
+
+		self.conv1 = nn.Conv2d(in_channels, in_channels, kernel_size=kernel1, stride=stride1,
+		                       padding=padding1, bias=self.bias)
+		self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size=kernel2, stride=stride2,
+		                       padding=padding2, bias=self.bias)
+
+	def weight_call(self, x):
+		x = self.conv1(x)
+		x = self.conv2(x)
+		return x
+
+	@property
+	def unit_str(self):
+		return '1x%d_%dx1_Conv' % (self.kernel_size, self.kernel_size)
+
+	@property
+	def config(self):
+		config = {
+			'name': VHConvLayer.__name__,
+			'kernel_size': self.kernel_size,
+			'stride': self.stride,
+			'bias': self.bias,
+		}
+		config.update(super(VHConvLayer, self).config)
+		return config
+
+	@staticmethod
+	def build_from_config(config):
+		return VHConvLayer(**config)
+
+	def get_flops(self, x):
+		flop1 = count_conv_flop(self.conv1, x)
+		flop2 = count_conv_flop(self.conv2, self.conv1(x))
+		return flop1 + flop2, self.forward(x)
+
+
 class MBInvertedConvLayer(BasicUnit):
 
-	def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, expand_ratio=6):
+	def __init__(self, in_channels, out_channels,
+	             kernel_size=3, stride=1, expand_ratio=6, has_final_relu=False):
 		super(MBInvertedConvLayer, self).__init__()
 
 		self.in_channels = in_channels
@@ -462,6 +524,7 @@ class MBInvertedConvLayer(BasicUnit):
 		self.kernel_size = kernel_size
 		self.stride = stride
 		self.expand_ratio = expand_ratio
+		self.has_final_relu = has_final_relu
 
 		if self.expand_ratio > 1:
 			feature_dim = round(in_channels * self.expand_ratio)
@@ -475,12 +538,24 @@ class MBInvertedConvLayer(BasicUnit):
 			self.inverted_bottleneck = None
 
 		# depthwise convolution
-		pad = get_same_padding(self.kernel_size)
-		self.depth_conv = nn.Sequential(OrderedDict({
-			'conv': nn.Conv2d(feature_dim, feature_dim, kernel_size, stride, pad, groups=feature_dim, bias=False),
-			'bn': nn.BatchNorm2d(feature_dim),
-			'relu': nn.ReLU6(inplace=True),
-		}))
+		if self.kernel_size % 2 == 0:
+			# even kernel size
+			pad = self.kernel_size // 2
+			pad = (pad, pad - 1, pad, pad - 1)
+			self.depth_conv = nn.Sequential(OrderedDict({
+				'pad': nn.ConstantPad2d(pad, 0),
+				'conv': nn.Conv2d(feature_dim, feature_dim, kernel_size, stride, 0, groups=feature_dim, bias=False),
+				'bn': nn.BatchNorm2d(feature_dim),
+				'relu': nn.ReLU6(inplace=True),
+			}))
+		else:
+			# odd kernel size
+			pad = get_same_padding(self.kernel_size)
+			self.depth_conv = nn.Sequential(OrderedDict({
+				'conv': nn.Conv2d(feature_dim, feature_dim, kernel_size, stride, pad, groups=feature_dim, bias=False),
+				'bn': nn.BatchNorm2d(feature_dim),
+				'relu': nn.ReLU6(inplace=True),
+			}))
 
 		# pointwise linear
 		self.point_linear = OrderedDict({
@@ -488,6 +563,8 @@ class MBInvertedConvLayer(BasicUnit):
 			'bn': nn.BatchNorm2d(out_channels),
 		})
 
+		if self.has_final_relu:
+			self.point_linear['relu'] = nn.ReLU6(inplace=True)
 		self.point_linear = nn.Sequential(self.point_linear)
 
 	def forward(self, x):
@@ -500,6 +577,8 @@ class MBInvertedConvLayer(BasicUnit):
 	@property
 	def unit_str(self):
 		unit_str = '%dx%d_MBConv%d' % (self.kernel_size, self.kernel_size, self.expand_ratio)
+		if self.has_final_relu:
+			unit_str += '_RELU'
 		return unit_str
 
 	@property
@@ -511,6 +590,7 @@ class MBInvertedConvLayer(BasicUnit):
 			'kernel_size': self.kernel_size,
 			'stride': self.stride,
 			'expand_ratio': self.expand_ratio,
+			'has_final_relu': self.has_final_relu,
 		}
 
 	@staticmethod

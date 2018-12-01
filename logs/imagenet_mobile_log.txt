@@ -1,8 +1,8 @@
 Total training params: 4.08M
 no color jitter
 Total FLOPs: 320.4M
-Network configs dump to /anonymous-code/Nets/imagenet-mobile/checkpoint
-Run configs dump to /anonymous-code/Nets/imagenet-mobile/run.config
+Network configs dump to /code/Nets/imagenet-mobile/checkpoint
+Run configs dump to /code/Nets/imagenet-mobile/run.config
 Test: [0/500]	Time 4.472 (4.472)	Loss 0.6867 (0.6867)	top 1-acc 92.000 (92.000)	top 5-acc 95.000 (95.000)
 Test: [70/500]	Time 0.145 (0.191)	Loss 0.5338 (0.8181)	top 1-acc 89.000 (82.056)	top 5-acc 97.000 (95.394)
 Test: [140/500]	Time 0.124 (0.159)	Loss 1.3985 (0.8600)	top 1-acc 67.000 (80.220)	top 5-acc 92.000 (95.404)

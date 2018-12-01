@@ -1,8 +1,8 @@
 Total training params: 7.12M
 no color jitter
 Total FLOPs: 465.3M
-Network configs dump to /anonymous-code/Nets/imagenet-gpu/checkpoint
-Run configs dump to /anonymous-code/Nets/imagenet-gpu/run.config
+Network configs dump to /code/Nets/imagenet-gpu/checkpoint
+Run configs dump to /code/Nets/imagenet-gpu/run.config
 Test: [0/500]	Time 4.254 (4.254)	Loss 0.5168 (0.5168)	top 1-acc 90.000 (90.000)	top 5-acc 96.000 (96.000)
 Test: [70/500]	Time 0.144 (0.189)	Loss 0.5205 (0.7987)	top 1-acc 89.000 (81.690)	top 5-acc 96.000 (95.423)
 Test: [140/500]	Time 0.123 (0.160)	Loss 1.3281 (0.8410)	top 1-acc 66.000 (80.270)	top 5-acc 93.000 (95.433)
