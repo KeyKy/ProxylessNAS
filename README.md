@@ -24,4 +24,4 @@ For more results, please refer to our paper.
     ```
 * Evaluate
 
-    `python eval.py --path 'Your path to imagent' `
+    `python eval.py --path 'Your path to imagent' --arch proxyless_cpu`
