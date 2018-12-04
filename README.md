@@ -28,14 +28,25 @@ Note: our code is developed in PyTorch 0.3, and has been tested in both 0.3 and 
 | ResNet-34       | 73.3     | 91.4      | 8.0ms    |
 | MNasNet(our impl) | 74.0 | 91.8 | 6.1s
 | Proxyless-NAS (GPU) | 75.1   | 92.5     | 5.1ms    |
+
+</td><td>
+<tr>
+    <th> 2.6% better than MobilenetV2 with same speed. </th>
+    <th> 3.1% better than MobilenetV2 with 20% faster. </th>
+</tr>
+
 </td></tr> </table>
 
-![](figures/proxyless_vs_mobilenet.png)
+## Specialization
 
+People used to deploy one model to all platforms, but this is not good. To fully exploit the efficiency, we should specialize architectures for each platform.
+
+![](figures/specialization.jpg)
+![](figures/specialized_archs.png)
 
 Please refer to our paper for more results.
  
-## How to use / evaluate 
+# How to use / evaluate 
 * Use
     ```python
     from proxyless_nas import proxyless_cpu, proxyless_gpu, proxyless_mobile
